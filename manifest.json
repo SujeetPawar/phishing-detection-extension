@@ -15,9 +15,9 @@
     "default_popup": "popup/popup.html"
   },
   "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
-    }
-  ]
+  {
+    "matches": ["<all_urls>"], 
+    "js": ["content.js"]
+  }
+]
 }
