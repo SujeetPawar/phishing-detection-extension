@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phishing Detection Results</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Phishing Detection</h1>
+
+    <!-- Results Section -->
+    <div id="results">
+      <div class="loading">Analyzing page...</div>
+    </div>
+
+    <!-- Threat Level Indicator -->
+    <div id="threatLevel">
+      <p><strong>Threat Level:</strong></p>
+      <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- Security Recommendations -->
+    <div id="recommendations" class="hidden">
+      <h3>Security Recommendations</h3>
+      <ul>
+        <li>Avoid clicking on suspicious links.</li>
+        <li>Check for HTTPS and valid SSL certificates.</li>
+        <li>Verify the URL before entering sensitive information.</li>
+        <li>Use a password manager for secure credentials.</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Phishing Detection Extension",
+  "version": "1.0",
+  "description": "Detects phishing websites using machine learning.",
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "scripting",
+    "webRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

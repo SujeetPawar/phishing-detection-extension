@@ -1,0 +1,62 @@
+body {
+  font-family: Arial, sans-serif;
+  width: 350px; /* Adjust width */
+  padding: 10px;
+}
+
+.container {
+  width: 100%;
+  text-align: center;
+}
+
+h1 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+#results {
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  font-size: 14px;
+  padding: 5px;
+  margin-bottom: 5px;
+  border-radius: 5px;
+  word-wrap: break-word;
+}
+
+.safe-link {
+  background-color: #DFF2BF; /* Light Green */
+  color: #4F8A10;
+}
+
+.dangerous-link {
+  background-color: #FFBABA; /* Light Red */
+  color: #D8000C;
+}
+
+.progress-container {
+  width: 100%;
+  background-color: #ddd;
+  border-radius: 5px;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 5px;
+  width: 0%;
+}
+
+.threat-label {
+  font-size: 14px;
+  margin-top: 5px;
+}
