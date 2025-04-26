@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "http://localhost:5000/*",
-    "<all_urls>"
+    "<all_urls>",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"

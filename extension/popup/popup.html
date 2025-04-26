@@ -10,17 +10,35 @@
   <div class="container">
     <h1>Phishing Detection</h1>
 
-    <!-- Results Section -->
-    <div id="results">
-      <div class="loading">Analyzing page...</div>
+    <!-- Stats Overview -->
+    <div class="stats-overview">
+      <div class="stat-box">
+        <span class="stat-number" id="totalLinks">0</span>
+        <span class="stat-label">Links Found</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-number" id="phishingLinks">0</span>
+        <span class="stat-label">Suspicious</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-number" id="sslIssues">0</span>
+        <span class="stat-label">SSL Issues</span>
+      </div>
     </div>
 
     <!-- Threat Level Indicator -->
     <div id="threatLevel">
-      <p><strong>Threat Level:</strong></p>
+      <p><strong>Threat Level:</strong> <span id="threatValue">Analyzing...</span></p>
       <div class="progress-container">
         <div id="progressBar" class="progress-bar"></div>
       </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results">
+      <div class="loading" id="loadingIndicator">Analyzing page...</div>
+      <div id="noLinksFound" class="hidden">No links found on this page.</div>
+      <ul id="linksList"></ul>
     </div>
 
     <!-- Security Recommendations -->
@@ -33,6 +51,9 @@
         <li>Use a password manager for secure credentials.</li>
       </ul>
     </div>
+    
+    <!-- Scan button -->
+    <button id="rescanButton" class="scan-button">Scan Again</button>
   </div>
 
   <script src="popup.js"></script>

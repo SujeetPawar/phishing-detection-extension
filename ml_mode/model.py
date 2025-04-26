@@ -6,14 +6,13 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
+
 
 # 🚀 Load dataset
-df = pd.read_csv('phishig.csv')
+df = pd.read_csv('phishing.csv')
 
 # 🛑 Drop unnecessary columns
-df.drop(['FILENAME', 'URL', 'Domain', 'Title', 'TLD'], axis=1, inplace=True)
+df.drop(['FILENAME', 'Title', 'TLD'], axis=1, inplace=True)
 
 # ✅ Encode categorical columns
 for col in df.select_dtypes(include=['object']).columns:
@@ -42,3 +41,5 @@ with open('../api/model.pkl', 'wb') as f:
     pickle.dump({'scaler': scaler, 'rf': rf_model, 'features': feature_names}, f)
 
 print("\n✅ Model and Feature Names Saved Successfully!")
+
+    
