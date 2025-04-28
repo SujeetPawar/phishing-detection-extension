@@ -1,40 +1,14 @@
-// Global variables
 let lastScannedContent = "";
-let scanInterval = null;
+let isScanning = false;
 
-// Start scanning immediately
-scanPage();
+function isEmailClient() {
+  return /mail\.google\.com|outlook\.office\.com|mail\.yahoo\.com/.test(window.location.href);
+}
 
-// Listen for commands from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "startScan") {
-    scanPage();
-  }
-  return true;
-});
-
-// Improved URL extraction with better email handling
 function extractAllLinks() {
   const links = new Set();
-  const pageText = document.body.innerText;
   
-  // Improved URL regex that handles most common URL formats
-  const urlRegex = /(https?:\/\/|www\.)[^\s"'<>)\]}]+(?<!\.|,|;|\?|!)/g;
-  const textUrls = pageText.match(urlRegex);
-  if (textUrls) {
-    textUrls.forEach(url => {
-      // Ensure URL starts with http/https
-      let cleanUrl = url.replace(/[.,;!?)]+$/, '');
-      if (!cleanUrl.startsWith('http')) {
-        cleanUrl = 'https://' + cleanUrl;
-      }
-      if (isValidUrl(cleanUrl)) {
-        links.add(cleanUrl);
-      }
-    });
-  }
-
-  // Anchor tag extraction
+  // Regular links
   document.querySelectorAll('a[href]').forEach(anchor => {
     try {
       const href = anchor.href.trim();
@@ -46,116 +20,54 @@ function extractAllLinks() {
     }
   });
 
-  // Special handling for email clients
-  detectEmailClientAndExtractLinks(links);
-
-  return Array.from(links);
-}
-
-// Special handling for different email clients
-function detectEmailClientAndExtractLinks(links) {
-  // Check for Gmail
-  if (document.querySelector('div[role="tabpanel"]')) {
-    extractLinksFromGmail(links);
-  }
-  // Check for Outlook Web
-  else if (document.querySelector('[aria-label="Message body"]')) {
-    extractLinksFromOutlook(links);
-  }
-  // Check for Yahoo Mail
-  else if (document.querySelector('#message-body')) {
-    extractLinksFromYahoo(links);
-  }
-  // Generic email content fallback
-  else {
-    extractLinksFromGenericEmail(links);
-  }
-}
-
-function extractLinksFromGmail(links) {
-  try {
-    // Gmail stores email content in specific divs
-    const emailBodies = document.querySelectorAll('div[dir="ltr"]');
-    emailBodies.forEach(body => {
-      const text = body.innerText;
-      extractUrlsFromText(text, links);
-      
-      // Also check links in anchor tags within the email
-      body.querySelectorAll('a[href]').forEach(anchor => {
-        const href = anchor.href.trim();
-        if (isValidUrl(href)) {
-          links.add(href);
-        }
-      });
-    });
-  } catch (e) {
-    console.log("Error extracting from Gmail:", e);
-  }
-}
-
-function extractLinksFromOutlook(links) {
-  try {
-    const emailBody = document.querySelector('[aria-label="Message body"]');
-    if (emailBody) {
-      extractUrlsFromText(emailBody.innerText, links);
-      emailBody.querySelectorAll('a[href]').forEach(anchor => {
-        const href = anchor.href.trim();
-        if (isValidUrl(href)) {
-          links.add(href);
-        }
-      });
-    }
-  } catch (e) {
-    console.log("Error extracting from Outlook:", e);
-  }
-}
-
-function extractLinksFromYahoo(links) {
-  try {
-    const emailBody = document.getElementById('message-body');
-    if (emailBody) {
-      extractUrlsFromText(emailBody.innerText, links);
-      emailBody.querySelectorAll('a[href]').forEach(anchor => {
-        const href = anchor.href.trim();
-        if (isValidUrl(href)) {
-          links.add(href);
-        }
-      });
-    }
-  } catch (e) {
-    console.log("Error extracting from Yahoo:", e);
-  }
-}
-
-function extractLinksFromGenericEmail(links) {
-  try {
-    // Look for common email body selectors
-    const potentialEmailBodies = document.querySelectorAll(
-      'div.email-body, div.message-body, div.email-content, div.msg-body'
-    );
-    
-    if (potentialEmailBodies.length > 0) {
-      potentialEmailBodies.forEach(body => {
-        extractUrlsFromText(body.innerText, links);
-        body.querySelectorAll('a[href]').forEach(anchor => {
+  // Links in iframes
+  document.querySelectorAll('iframe').forEach(iframe => {
+    try {
+      if (iframe.contentDocument) {
+        iframe.contentDocument.querySelectorAll('a[href]').forEach(anchor => {
           const href = anchor.href.trim();
           if (isValidUrl(href)) {
             links.add(href);
           }
         });
-      });
-    } else {
-      // Fallback to checking the entire page
-      extractUrlsFromText(document.body.innerText, links);
+      }
+    } catch (e) {
+      console.log("Error processing iframe:", e);
     }
-  } catch (e) {
-    console.log("Error in generic email extraction:", e);
+  });
+
+  // Links in shadow DOM
+  const walker = document.createTreeWalker(
+    document.body, 
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode(node) {
+        if (node.shadowRoot) return NodeFilter.FILTER_ACCEPT;
+        return NodeFilter.FILTER_SKIP;
+      }
+    }
+  );
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    node.shadowRoot?.querySelectorAll('a[href]').forEach(anchor => {
+      const href = anchor.href.trim();
+      if (isValidUrl(href)) {
+        links.add(href);
+      }
+    });
   }
+
+  // Extract from text
+  extractUrlsFromText(document.body.innerText, links);
+  
+  return Array.from(links);
 }
 
 function extractUrlsFromText(text, links) {
-  const urlRegex = /(https?:\/\/|www\.)[^\s"'<>)\]}]+(?<!\.|,|;|\?|!)/g;
+  const urlRegex = /(?:https?:\/\/|www\.)[^\s\"\'\<\>\)\]\}\,]+/gi;
   const urls = text.match(urlRegex);
+
   if (urls) {
     urls.forEach(url => {
       let cleanUrl = url.replace(/[.,;!?)]+$/, '');
@@ -169,18 +81,6 @@ function extractUrlsFromText(text, links) {
   }
 }
 
-// Simple string hashing function for detecting content changes
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return hash;
-}
-
-// Check if URL is valid
 function isValidUrl(string) {
   try {
     const url = new URL(string);
@@ -190,38 +90,54 @@ function isValidUrl(string) {
   }
 }
 
-// Main scanning function
+// Replace the scanPage function
 function scanPage() {
-  const links = extractAllLinks();
+  if (isScanning) return;
+  isScanning = true;
+
+  // Clear previous results
+  lastScannedContent = "";
   
-  if (links.length > 0) {
-    // Send links to background script for analysis
-    chrome.runtime.sendMessage({
-      action: "analyzeLinks",
-      links: links
-    });
-  } else {
-    // No links found, send empty results
-    chrome.runtime.sendMessage({
-      action: "updateResults",
-      results: []
-    });
-  }
+  // Extract links with timeout for complex pages
+  setTimeout(() => {
+    try {
+      const links = extractAllLinks();
+      if (links.length > 0) {
+        chrome.runtime.sendMessage({ action: "analyzeLinks", links });
+      } else {
+        chrome.runtime.sendMessage({ action: "updateResults", results: [] });
+      }
+    } catch (e) {
+      console.error("Scan error:", e);
+    }
+    isScanning = false;
+  }, isEmailClient() ? 3000 : 500); // Shorter delay for regular pages
 }
 
-// Set up a mutation observer to detect DOM changes
+// Remove the automatic scan call and mutation observer
+// Keep only the message listener:
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "startScan") {
+    scanPage();
+  }
+  return true;
+});
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash;
+}
+
 const observer = new MutationObserver(debounce(() => {
   scanPage();
 }, 2000));
 
-// Start observing the document with configured parameters
-observer.observe(document.body, { 
-  childList: true,
-  subtree: true,
-  characterData: true
-});
+observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 
-// Debounce function to limit how often we scan
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -233,3 +149,13 @@ function debounce(func, wait) {
     timeout = setTimeout(later, wait);
   };
 }
+
+// Initial scan
+scanPage();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "startScan") {
+    scanPage();
+  }
+  return true;
+});

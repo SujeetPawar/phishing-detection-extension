@@ -3,16 +3,21 @@ let analysisResults = [];
 let isLoading = true;
 
 // Initialize popup
+// Replace the DOMContentLoaded listener in popup.js
 document.addEventListener('DOMContentLoaded', function() {
-  chrome.runtime.sendMessage({action: "getResults"}, response => {
-    if (response && response.results) {
-      updateUI(response.results);
-    } else {
-      triggerScan();
-    }
+  // Show initial state
+  setLoading(false);
+  document.getElementById('noLinksFound').classList.remove('hidden');
+  
+  // Set up scan button
+  document.getElementById('rescanButton').addEventListener('click', function() {
+    setLoading(true);
+    chrome.tabs.query({active: true, currentWindow: true}, tabs => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: "startScan"});
+      }
+    });
   });
-
-  document.getElementById('rescanButton').addEventListener('click', triggerScan);
 });
 
 // Listen for messages
@@ -45,9 +50,7 @@ function setLoading(loading) {
     document.getElementById('phishingLinks').textContent = '0';
     document.getElementById('sslIssues').textContent = '0';
     document.getElementById('threatValue').textContent = 'Analyzing...';
-    const progressBar = document.getElementById('progressBar');
-    progressBar.style.width = '0%';
-    progressBar.style.backgroundColor = '#6c757d';
+    document.getElementById('progressBar').style.width = '0%';
   }
 }
 
@@ -61,13 +64,9 @@ function updateUI(results) {
     return;
   }
 
-  const suspiciousResults = results.filter(item => 
-    item.prediction === "Phishing" || !item.validSSL
-  );
-
   const totalLinks = results.length;
-  const phishingLinks = results.filter(item => item.prediction === "Phishing").length;
-  const sslIssues = results.filter(item => !item.validSSL).length;
+  const phishingLinks = results.filter(r => r.prediction === "Phishing").length;
+  const sslIssues = results.filter(r => !r.validSSL).length;
 
   document.getElementById('totalLinks').textContent = totalLinks;
   document.getElementById('phishingLinks').textContent = phishingLinks;
@@ -87,7 +86,7 @@ function updateUI(results) {
   const linksList = document.getElementById('linksList');
   linksList.innerHTML = '';
 
-  if (suspiciousResults.length === 0) {
+  if (totalLinks === 0) {
     const li = document.createElement('li');
     li.className = 'safe-link';
     li.textContent = 'No suspicious links found';
@@ -95,13 +94,25 @@ function updateUI(results) {
     return;
   }
 
-  suspiciousResults.forEach(item => {
+  results.forEach(item => {
     const li = document.createElement('li');
-    li.className = item.prediction === "Phishing" ? 'phishing-link' : 'ssl-issue-link';
+
+    if (item.prediction === "Phishing") {
+      li.className = 'phishing-link';
+    } else if (!item.validSSL) {
+      li.className = 'ssl-issue-link';
+    } else {
+      li.className = 'safe-link';
+    }
+
     li.innerHTML = `
-      <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>
-      <span class="badge">${item.prediction}</span>
-      ${!item.validSSL ? '<span class="badge ssl-issue">SSL Issue</span>' : ''}
+      <div class="link-url">
+        <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>
+      </div>
+      <div class="link-status">
+        ${item.prediction === "Phishing" ? '<span class="badge">Phishing</span>' : ''}
+        ${!item.validSSL ? '<span class="badge ssl-issue">SSL Issue</span>' : ''}
+      </div>
     `;
     linksList.appendChild(li);
   });
@@ -116,12 +127,12 @@ function updateThreatUI(threatLevel) {
 
   if (threatLevel >= 70) {
     threatValue.textContent = 'High Risk';
-    progressBar.style.backgroundColor = '#dc3545';
+    progressBar.style.backgroundColor = '#dc3545'; // red
   } else if (threatLevel >= 40) {
-    threatValue.textContent = 'Medium Risk';
-    progressBar.style.backgroundColor = '#ffc107';
+    threatValue.textContent = 'Moderate Risk';
+    progressBar.style.backgroundColor = '#ffc107'; // yellow
   } else {
     threatValue.textContent = 'Low Risk';
-    progressBar.style.backgroundColor = '#28a745';
+    progressBar.style.backgroundColor = '#28a745'; // green
   }
 }

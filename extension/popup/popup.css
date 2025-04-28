@@ -70,18 +70,6 @@ h3 {
   color: #6c757d;
 }
 
-.loading:after {
-  content: '.';
-  animation: dots 1.5s steps(5, end) infinite;
-}
-
-@keyframes dots {
-  0%, 20% { content: '.'; }
-  40% { content: '..'; }
-  60% { content: '...'; }
-  80%, 100% { content: ''; }
-}
-
 #linksList {
   list-style: none;
   padding: 0;
@@ -98,33 +86,19 @@ h3 {
   display: flex;
   flex-direction: column;
   border-left: 5px solid #ccc;
-  word-break: break-all;
+  word-break: break-word;
 }
 
-.link-url {
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-
-.link-status, .ssl-status {
-  display: flex;
-  align-items: center;
-}
-
-.status-icon {
-  margin-right: 5px;
-}
-
-#linksList li.dangerous-link {
+#linksList li.phishing-link {
   border-color: #F44336;
+}
+
+#linksList li.ssl-issue-link {
+  border-color: #FFC107;
 }
 
 #linksList li.safe-link {
   border-color: #4CAF50;
-}
-
-#linksList li.unknown-link {
-  border-color: #FFC107;
 }
 
 .progress-container {
@@ -183,4 +157,19 @@ h3 {
 
 .hidden {
   display: none;
+}
+
+.badge {
+  display: inline-block;
+  background: #6c757d;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  margin-top: 5px;
+  margin-right: 5px;
+}
+
+.ssl-issue {
+  background: #FFC107;
 }
