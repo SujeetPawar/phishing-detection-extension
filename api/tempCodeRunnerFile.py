@@ -1,1 +1,1 @@
-URLFeatureExtractor
+analyze-batch

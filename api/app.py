@@ -6,9 +6,14 @@ import socket
 from urllib.parse import urlparse
 import os
 import sys
+
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ml_mode.model import HybridModel, load_model, URLFeatureExtractor
+
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
 
 # Set socket timeout for SSL checks
 socket.setdefaulttimeout(1.0)
@@ -18,12 +23,15 @@ try:
     model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at {model_path}")
-
-    # Load the entire HybridModel
-    with open(model_path, "rb") as f:
-        model = joblib.load(f)
-
-    print("Model loaded successfully")
+    
+    # Make sure required classes are available
+    _ = URLFeatureExtractor()  # Test if class can be instantiated
+    _ = HybridModel()         # Test if class can be instantiated
+    
+    model = load_model(model_path)
+    if model is None:
+        raise ValueError("Failed to load model - invalid format")
+    print("✅ Model loaded successfully")
 except Exception as e:
     print(f"Error loading model: {e}")
     model = None
