@@ -2,79 +2,89 @@ let analysisResults = [];
 let isLoading = false;
 let isBackendConnected = false;
 let activeTabId = null;
+let currentTabUrl = null;
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // Initialize UI
   setLoading(true);
   document.getElementById('noLinksFound').classList.add('hidden');
-  
-  // Set up scan button
   document.getElementById('rescanButton').addEventListener('click', triggerScan);
   
-  // Get active tab
-  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-  if (tab) {
-    activeTabId = tab.id;
-    
-    // Check backend connection
-    isBackendConnected = await checkBackendConnection();
-    if (!isBackendConnected) {
-      showConnectionError();
-      return;
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    if (tab) {
+      activeTabId = tab.id;
+      currentTabUrl = tab.url;
+      console.log(`Active tab: ${tab.url} (ID: ${tab.id})`);
+
+      isBackendConnected = await checkBackendConnection();
+      if (!isBackendConnected) {
+        showConnectionError();
+        return;
+      }
+      
+      await initializeContentScript();
+      triggerScan();
+    } else {
+      showNoActiveTabError();
     }
-    
-    // Initial scan
-    triggerScan();
-  } else {
-    showNoActiveTabError();
+  } catch (error) {
+    console.error("Initialization error:", error);
+    showScanError(error.message);
   }
 });
 
-// Listen for messages
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === "updateResults") {
-    updateUI(message.results);
+async function initializeContentScript() {
+  console.log(`Initializing content script for tab ${activeTabId}`);
+  try {
+    await chrome.scripting.executeScript({
+      target: {tabId: activeTabId, allFrames: true},
+      files: ['content.js']
+    });
+    console.log("Content script injected successfully");
+  } catch (error) {
+    console.error("Content script injection failed:", error);
+    throw error;
   }
-});
+}
 
 async function triggerScan() {
   if (isLoading || !activeTabId) return;
   
   setLoading(true);
-  console.log("Starting scan for tab:", activeTabId);
+  console.log(`Starting scan for tab ${activeTabId}`);
   
   try {
-    // First try to initialize the content script
-    console.log("Initializing content script...");
-    await chrome.scripting.executeScript({
-      target: {tabId: activeTabId},
-      files: ['content.js']
-    });
-    
-    // Then send the scan command
-    console.log("Sending scan command...");
-    const response = await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
-    
-    if (!response?.success) {
-      throw new Error(response?.error || "Scan failed without error message");
+    // Verify content script is ready
+    const pingResponse = await chrome.tabs.sendMessage(activeTabId, {action: "ping"});
+    console.log("Ping response:", pingResponse);
+
+    if (!pingResponse?.success) {
+      throw new Error("Content script not responding");
+    }
+
+    // Start the scan
+    const scanResponse = await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
+    console.log("Scan response:", scanResponse);
+
+    if (!scanResponse?.success) {
+      throw new Error(scanResponse?.error || "Scan failed");
     }
   } catch (error) {
     console.error("Scan error:", error);
-    showScanError(error.message);
     
-    // Try to re-inject and scan again if failed
+    // Attempt recovery by re-injecting content script
     try {
-      console.log("Retrying scan...");
-      await chrome.scripting.executeScript({
-        target: {tabId: activeTabId},
-        files: ['content.js']
-      });
-      await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
+      console.log("Attempting recovery...");
+      await initializeContentScript();
+      const retryResponse = await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
+      console.log("Retry response:", retryResponse);
     } catch (retryError) {
-      console.error("Retry failed:", retryError);
+      console.error("Recovery failed:", retryError);
+      showScanError(error.message);
     }
   }
 }
+
 function showScanError(message) {
   setLoading(false);
   const linksList = document.getElementById('linksList');
