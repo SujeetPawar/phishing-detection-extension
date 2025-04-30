@@ -1,8 +1,18 @@
+// popup.js - Fixed version
 let analysisResults = [];
 let isLoading = false;
 let isBackendConnected = false;
 let activeTabId = null;
 let currentTabUrl = null;
+
+// Add message listener at the top level
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "updateResults") {
+    updateUI(message.results);
+    sendResponse({ success: true });
+  }
+  return true;
+});
 
 document.addEventListener('DOMContentLoaded', async function() {
   setLoading(true);
@@ -131,13 +141,12 @@ function showNoActiveTabError() {
   `;
 }
 
-
 function setLoading(loading) {
   isLoading = loading;
   const loadingIndicator = document.getElementById('loadingIndicator');
   const rescanButton = document.getElementById('rescanButton');
   
-  loadingIndicator.style.display = loading ? 'block' : 'none';
+  loadingIndicator.style.display = loading ? 'flex' : 'none';
   rescanButton.disabled = loading;
 
   if (loading) {
@@ -185,7 +194,7 @@ function updateThreatUI(threatLevel) {
   const threatValue = document.getElementById('threatValue');
   const progressBar = document.getElementById('progressBar');
 
-  progressBar.style.width = `${threatLevel}%`;
+  progressBar.style.width = `${Math.min(threatLevel, 100)}%`;
 
   if (threatLevel >= 70) {
     threatValue.textContent = 'High Risk';
@@ -206,7 +215,7 @@ function updateLinksList() {
   if (analysisResults.length === 0) {
     const li = document.createElement('li');
     li.className = 'safe-link';
-    li.textContent = 'No links found';
+    li.textContent = '';
     linksList.appendChild(li);
     return;
   }
