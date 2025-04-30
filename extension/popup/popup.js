@@ -1,46 +1,134 @@
-// Global variables
 let analysisResults = [];
-let isLoading = true;
+let isLoading = false;
+let isBackendConnected = false;
+let activeTabId = null;
 
-// Initialize popup
-// Replace the DOMContentLoaded listener in popup.js
-document.addEventListener('DOMContentLoaded', function() {
-  // Show initial state
-  setLoading(false);
-  document.getElementById('noLinksFound').classList.remove('hidden');
+document.addEventListener('DOMContentLoaded', async function() {
+  // Initialize UI
+  setLoading(true);
+  document.getElementById('noLinksFound').classList.add('hidden');
   
   // Set up scan button
-  document.getElementById('rescanButton').addEventListener('click', function() {
-    setLoading(true);
-    chrome.tabs.query({active: true, currentWindow: true}, tabs => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {action: "startScan"});
-      }
-    });
-  });
+  document.getElementById('rescanButton').addEventListener('click', triggerScan);
+  
+  // Get active tab
+  const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+  if (tab) {
+    activeTabId = tab.id;
+    
+    // Check backend connection
+    isBackendConnected = await checkBackendConnection();
+    if (!isBackendConnected) {
+      showConnectionError();
+      return;
+    }
+    
+    // Initial scan
+    triggerScan();
+  } else {
+    showNoActiveTabError();
+  }
 });
 
 // Listen for messages
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
   if (message.action === "updateResults") {
     updateUI(message.results);
   }
 });
 
-// Trigger new scan
-function triggerScan() {
+async function triggerScan() {
+  if (isLoading || !activeTabId) return;
+  
   setLoading(true);
-  chrome.tabs.query({active: true, currentWindow: true}, tabs => {
-    if (tabs[0]) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: "startScan"});
+  console.log("Starting scan for tab:", activeTabId);
+  
+  try {
+    // First try to initialize the content script
+    console.log("Initializing content script...");
+    await chrome.scripting.executeScript({
+      target: {tabId: activeTabId},
+      files: ['content.js']
+    });
+    
+    // Then send the scan command
+    console.log("Sending scan command...");
+    const response = await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
+    
+    if (!response?.success) {
+      throw new Error(response?.error || "Scan failed without error message");
     }
-  });
+  } catch (error) {
+    console.error("Scan error:", error);
+    showScanError(error.message);
+    
+    // Try to re-inject and scan again if failed
+    try {
+      console.log("Retrying scan...");
+      await chrome.scripting.executeScript({
+        target: {tabId: activeTabId},
+        files: ['content.js']
+      });
+      await chrome.tabs.sendMessage(activeTabId, {action: "startScan"});
+    } catch (retryError) {
+      console.error("Retry failed:", retryError);
+    }
+  }
+}
+function showScanError(message) {
+  setLoading(false);
+  const linksList = document.getElementById('linksList');
+  linksList.innerHTML = `
+    <li class="error-message">
+      Failed to scan the page: ${message || 'Unknown error'}
+    </li>
+  `;
 }
 
-// Set loading state
+async function checkBackendConnection() {
+  try {
+    const response = await chrome.runtime.sendMessage({action: "checkConnection"});
+    return response?.connected || false;
+  } catch (error) {
+    console.error("Connection check error:", error);
+    return false;
+  }
+}
+
+function showConnectionError() {
+  setLoading(false);
+  const linksList = document.getElementById('linksList');
+  linksList.innerHTML = `
+    <li class="error-message">
+      <strong>Backend Connection Failed</strong>
+      <p>Please ensure:</p>
+      <ol>
+        <li>The backend server is running at http://localhost:5000</li>
+        <li>You have network connectivity</li>
+        <li>There are no browser restrictions</li>
+      </ol>
+    </li>
+  `;
+}
+
+function showNoActiveTabError() {
+  setLoading(false);
+  const linksList = document.getElementById('linksList');
+  linksList.innerHTML = `
+    <li class="error-message">
+      No active tab found. Please refresh the page and try again.
+    </li>
+  `;
+}
+
+
 function setLoading(loading) {
   isLoading = loading;
-  document.getElementById('loadingIndicator').style.display = loading ? 'block' : 'none';
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const rescanButton = document.getElementById('rescanButton');
+  
+  loadingIndicator.style.display = loading ? 'block' : 'none';
+  rescanButton.disabled = loading;
 
   if (loading) {
     document.getElementById('linksList').innerHTML = '';
@@ -54,71 +142,35 @@ function setLoading(loading) {
   }
 }
 
-// Update UI
 function updateUI(results) {
   setLoading(false);
-  analysisResults = results;
+  analysisResults = results || [];
 
-  if (!results || results.length === 0) {
+  if (analysisResults.length === 0) {
     document.getElementById('noLinksFound').classList.remove('hidden');
     return;
   }
 
-  const totalLinks = results.length;
-  const phishingLinks = results.filter(r => r.prediction === "Phishing").length;
-  const sslIssues = results.filter(r => !r.validSSL).length;
+  const totalLinks = analysisResults.length;
+  const phishingLinks = analysisResults.filter(r => r.prediction === "Phishing").length;
+  const sslIssues = analysisResults.filter(r => !r.validSSL).length;
 
   document.getElementById('totalLinks').textContent = totalLinks;
   document.getElementById('phishingLinks').textContent = phishingLinks;
   document.getElementById('sslIssues').textContent = sslIssues;
 
-  let threatLevel = 0;
-  if (totalLinks > 0) {
-    threatLevel = ((phishingLinks / totalLinks) * 70) + ((sslIssues / totalLinks) * 30);
-  }
-
+  const threatLevel = calculateThreatLevel(phishingLinks, sslIssues, totalLinks);
   updateThreatUI(threatLevel);
 
-  if (phishingLinks > 0 || sslIssues > 0) {
-    document.getElementById('recommendations').classList.remove('hidden');
-  }
-
-  const linksList = document.getElementById('linksList');
-  linksList.innerHTML = '';
-
-  if (totalLinks === 0) {
-    const li = document.createElement('li');
-    li.className = 'safe-link';
-    li.textContent = 'No suspicious links found';
-    linksList.appendChild(li);
-    return;
-  }
-
-  results.forEach(item => {
-    const li = document.createElement('li');
-
-    if (item.prediction === "Phishing") {
-      li.className = 'phishing-link';
-    } else if (!item.validSSL) {
-      li.className = 'ssl-issue-link';
-    } else {
-      li.className = 'safe-link';
-    }
-
-    li.innerHTML = `
-      <div class="link-url">
-        <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>
-      </div>
-      <div class="link-status">
-        ${item.prediction === "Phishing" ? '<span class="badge">Phishing</span>' : ''}
-        ${!item.validSSL ? '<span class="badge ssl-issue">SSL Issue</span>' : ''}
-      </div>
-    `;
-    linksList.appendChild(li);
-  });
+  updateLinksList();
+  updateRecommendations(phishingLinks, sslIssues);
 }
 
-// Update Threat Level UI
+function calculateThreatLevel(phishingLinks, sslIssues, totalLinks) {
+  if (totalLinks === 0) return 0;
+  return ((phishingLinks / totalLinks) * 70) + ((sslIssues / totalLinks) * 30);
+}
+
 function updateThreatUI(threatLevel) {
   const threatValue = document.getElementById('threatValue');
   const progressBar = document.getElementById('progressBar');
@@ -127,12 +179,59 @@ function updateThreatUI(threatLevel) {
 
   if (threatLevel >= 70) {
     threatValue.textContent = 'High Risk';
-    progressBar.style.backgroundColor = '#dc3545'; // red
+    progressBar.style.backgroundColor = '#dc3545';
   } else if (threatLevel >= 40) {
     threatValue.textContent = 'Moderate Risk';
-    progressBar.style.backgroundColor = '#ffc107'; // yellow
+    progressBar.style.backgroundColor = '#ffc107';
   } else {
     threatValue.textContent = 'Low Risk';
-    progressBar.style.backgroundColor = '#28a745'; // green
+    progressBar.style.backgroundColor = '#28a745';
+  }
+}
+
+function updateLinksList() {
+  const linksList = document.getElementById('linksList');
+  linksList.innerHTML = '';
+
+  if (analysisResults.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'safe-link';
+    li.textContent = 'No links found';
+    linksList.appendChild(li);
+    return;
+  }
+
+  analysisResults.forEach(item => {
+    const li = document.createElement('li');
+    li.className = getLinkClassName(item);
+    li.innerHTML = createLinkHTML(item);
+    linksList.appendChild(li);
+  });
+}
+
+function getLinkClassName(item) {
+  if (item.prediction === "Phishing") return 'phishing-link';
+  if (!item.validSSL) return 'ssl-issue-link';
+  return 'safe-link';
+}
+
+function createLinkHTML(item) {
+  return `
+    <div class="link-url">
+      <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.url}</a>
+    </div>
+    <div class="link-status">
+      ${item.prediction === "Phishing" ? '<span class="badge">Phishing</span>' : ''}
+      ${!item.validSSL ? '<span class="badge ssl-issue">SSL Issue</span>' : ''}
+    </div>
+  `;
+}
+
+function updateRecommendations(phishingLinks, sslIssues) {
+  const recommendations = document.getElementById('recommendations');
+  if (phishingLinks > 0 || sslIssues > 0) {
+    recommendations.classList.remove('hidden');
+  } else {
+    recommendations.classList.add('hidden');
   }
 }

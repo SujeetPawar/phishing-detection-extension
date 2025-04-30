@@ -144,12 +144,37 @@ class HybridModel:
             sequences.append(seq)
         return np.expand_dims(np.array(sequences), -1)
 
-# 🚀 Main execution
+
+def save_model(model, path):
+    """Custom save function that ensures all classes are available"""
+    with open(path, 'wb') as f:
+        pickle.dump({
+            'model': model,
+            'model_type': 'HybridModel',
+            'classes': {
+                'URLFeatureExtractor': URLFeatureExtractor,
+                'HybridModel': HybridModel
+            }
+        }, f)
+
+def load_model(path):
+    """Custom load function that ensures proper reconstruction"""
+    try:
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            if data.get('model_type') == 'HybridModel':
+                # Ensure classes are available in globals
+                for name, cls in data.get('classes', {}).items():
+                    globals()[name] = cls
+                return data['model']
+        return None
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        return None
+    
 if __name__ == "__main__":
     # Load dataset
     df = pd.read_csv('phishing.csv')
-    
-    # We'll use URL column as input and label as target
     X = df['URL'].values
     y = df['label'].values
     
@@ -164,14 +189,11 @@ if __name__ == "__main__":
     
     # Evaluate
     y_pred = model.predict(X_test)
-    
     print("\n🔍 Evaluation Metrics:")
     print(classification_report(y_test, y_pred))
-    print("\nConfusion Matrix:")
-    print(confusion_matrix(y_test, y_pred))
     
-    # Save model
-    with open('../api/model.pkl', 'wb') as f:
-        pickle.dump(model, f)
-    
+    # Save model using our custom function
+    save_model(model, '../api/model.pkl')
     print("\n✅ Hybrid Model Saved Successfully!")
+
+__all__ = ['URLFeatureExtractor', 'HybridModel', 'save_model', 'load_model']

@@ -8,7 +8,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>Phishing Detection</h1>
+    <div class="header">
+      <h1>Phishing Detection</h1>
+      <div class="last-scanned" id="lastScannedTime"></div>
+    </div>
 
     <!-- Stats Overview -->
     <div class="stats-overview">
@@ -28,7 +31,7 @@
 
     <!-- Threat Level Indicator -->
     <div id="threatLevel">
-      <p><strong>Threat Level:</strong> <span id="threatValue">Analyzing...</span></p>
+      <p><strong>Threat Level:</strong> <span id="threatValue">Not Scanned</span></p>
       <div class="progress-container">
         <div id="progressBar" class="progress-bar"></div>
       </div>
@@ -36,7 +39,10 @@
 
     <!-- Results Section -->
     <div id="results">
-      <div class="loading" id="loadingIndicator">Analyzing page...</div>
+      <div class="loading" id="loadingIndicator">
+        <div class="spinner"></div>
+        <p>Analyzing page content...</p>
+      </div>
       <div id="noLinksFound" class="hidden">No links found on this page.</div>
       <ul id="linksList"></ul>
     </div>
@@ -45,15 +51,18 @@
     <div id="recommendations" class="hidden">
       <h3>Security Recommendations</h3>
       <ul>
-        <li>Avoid clicking on suspicious links.</li>
-        <li>Check for HTTPS and valid SSL certificates.</li>
-        <li>Verify the URL before entering sensitive information.</li>
-        <li>Use a password manager for secure credentials.</li>
+        <li>Do not click on suspicious links</li>
+        <li>Verify website authenticity before entering credentials</li>
+        <li>Check for HTTPS and valid SSL certificates</li>
+        <li>Report suspicious sites to your security team</li>
       </ul>
     </div>
 
     <!-- Scan button -->
-    <button id="rescanButton" class="scan-button">Scan Again</button>
+    <button id="rescanButton" class="scan-button">
+      <span class="button-text">Scan Page</span>
+      <span class="button-icon">↻</span>
+    </button>
   </div>
 
   <script src="popup.js"></script>
