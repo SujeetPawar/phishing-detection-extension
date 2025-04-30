@@ -63,33 +63,80 @@ def check_ssl(url):
 def predict():
     try:
         data = request.get_json()
-        url = data.get("url")
+        print(f"Received prediction request with data: {data}")
+        
+        # Handle both 'url' and 'urls' parameters
+        urls = data.get("urls", [])
+        if not urls:
+            single_url = data.get("url")
+            if single_url:
+                urls = [single_url]
+            else:
+                print("No URLs provided in request")
+                return jsonify({"error": "No URLs provided"}), 400
 
-        if not url:
-            return jsonify({"error": "No URL provided"}), 400
+        if isinstance(urls, str):
+            urls = [urls]
 
-        # Check if URL is valid
-        parsed = urlparse(url)
-        if not all([parsed.scheme, parsed.netloc]):
-            return jsonify({"prediction": "Invalid URL", "validSSL": False}), 200
+        print(f"Processing {len(urls)} URLs")
+        results = []
+        
+        for url in urls:
+            try:
+                print(f"Processing URL: {url}")
+                parsed = urlparse(url)
+                
+                if not all([parsed.scheme, parsed.netloc]):
+                    print(f"Invalid URL: {url}")
+                    results.append({
+                        "url": url,
+                        "prediction": "Invalid URL",
+                        "validSSL": False
+                    })
+                    continue
 
-        # Predict using the HybridModel
-        prediction = model.predict([url])[0]  # Model expects just URL as input
+                # Predict
+                print(f"Making prediction for: {url}")
+                prediction = model.predict([url])[0]
+                prediction_label = "Phishing" if prediction == 1 else "Legitimate"
+                print(f"Prediction result: {prediction_label}")
 
-        prediction_label = "Phishing" if prediction == 1 else "Legitimate"
+                # Check SSL
+                print(f"Checking SSL for: {url}")
+                valid_ssl = check_ssl(url)
+                print(f"SSL result: {valid_ssl}")
 
-        # Check SSL certificate
-        valid_ssl = check_ssl(url)
+                results.append({
+                    "url": url,
+                    "prediction": prediction_label,
+                    "validSSL": valid_ssl
+                })
 
+            except Exception as e:
+                print(f"Error processing URL {url}: {str(e)}")
+                results.append({
+                    "url": url,
+                    "prediction": "Error",
+                    "validSSL": False,
+                    "error": str(e)
+                })
+
+        print(f"Returning results for {len(results)} URLs")
         return jsonify({
-            "url": url,
-            "prediction": prediction_label,
-            "validSSL": valid_ssl
-        })
+            "results": results,
+            "count": len(results),
+            "success": True
+        }), 200
+        
+        
 
     except Exception as e:
-        print(f"Prediction error: {e}")
-        return jsonify({"error": str(e), "validSSL": False}), 500
+        print(f"Batch prediction error: {str(e)}")
+        return jsonify({
+            "error": str(e),
+            "validSSL": False,
+            "success": False
+        }), 500
 
 @app.route("/analyze-batch", methods=["POST"])
 def analyze_batch():
