@@ -58,11 +58,17 @@
       </ul>
     </div>
 
-    <!-- Scan button -->
-    <button id="rescanButton" class="scan-button">
-      <span class="button-text">Scan Page</span>
-      <span class="button-icon">↻</span>
-    </button>
+    <!-- Scan/Stop buttons -->
+    <div class="button-container">
+      <button id="rescanButton" class="scan-button">
+        <span class="button-text">Scan Page</span>
+        <span class="button-icon">↻</span>
+      </button>
+      <button id="stopButton" class="stop-button hidden">
+        <span class="button-text">Stop Scan</span>
+        <span class="button-icon">✕</span>
+      </button>
+    </div>
   </div>
 
   <script src="popup.js"></script>

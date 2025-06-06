@@ -237,6 +237,30 @@ h1 {
   margin-bottom: 4px;
 }
 
+.ready-message {
+  background-color: #f0f9ff !important;
+  border-left: 4px solid #3b82f6 !important;
+  text-align: center;
+}
+
+.ready-content {
+  padding: 8px 0;
+}
+
+.ready-content strong {
+  color: #1e40af;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.ready-content p {
+  color: #64748b;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 #recommendations {
   background-color: white;
   border-radius: 8px;
@@ -265,10 +289,15 @@ h1 {
   line-height: 1.4;
 }
 
-.scan-button {
+.button-container {
+  display: flex;
+  gap: 8px;
   width: 100%;
+}
+
+.scan-button, .stop-button {
+  flex: 1;
   padding: 10px 16px;
-  background-color: #4299e1;
   color: white;
   border: none;
   border-radius: 6px;
@@ -280,6 +309,14 @@ h1 {
   justify-content: center;
   gap: 8px;
   transition: all 0.2s ease;
+}
+
+.scan-button {
+  background-color: #4299e1;
+}
+
+.stop-button {
+  background-color: #e53e3e;
 }
 
 .scan-button:hover {

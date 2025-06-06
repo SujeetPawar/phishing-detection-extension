@@ -161,5 +161,12 @@ def analyze_batch():
         print(f"Batch analysis error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/", methods=["HEAD"])
+def connection_check():
+    # Just return an empty 200 response for connection checks
+    return "", 200
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # Use the PORT environment variable provided by Cloud Run if available
+    port = int(os.environ.get("PORT", 8080))
+    app.run(debug=False, host="0.0.0.0", port=port)

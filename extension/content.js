@@ -1,6 +1,9 @@
 // content.js - Enhanced Link Scanner
 let isScanning = false;
 let activeScanAbortController = null;
+let mutationObserver = null;
+let scanRequested = false;
+let isInitialized = false;
 const DEBUG = true;
 
 function debugLog(...args) {
@@ -151,14 +154,17 @@ function extractFromText(text, links) {
 }
 
 async function scanPage() {
-    if (isScanning || !isExtensionContextValid()) return;
+    if (isScanning || !isExtensionContextValid() || !scanRequested) {
+        debugLog("Scan conditions not met:", { isScanning, extensionValid: isExtensionContextValid(), scanRequested });
+        return;
+    }
     
     isScanning = true;
-    debugLog("Starting page scan");
+    debugLog("Starting SINGLE page scan for:", window.location.href);
     
     try {
         const links = extractAllLinks();
-        debugLog("Extracted links:", links);
+        debugLog(`Extracted ${links.length} links`);
         
         if (links.length > 0) {
             await chrome.runtime.sendMessage({ 
@@ -177,38 +183,89 @@ async function scanPage() {
         debugLog("Scan error:", e);
     } finally {
         isScanning = false;
+        // Reset scan request after completing scan
+        scanRequested = false;
+        debugLog("Scan completed, resetting scanRequested flag");
+    }
+}
+
+function stopScanning() {
+    debugLog("Stopping scan");
+    scanRequested = false;
+    isScanning = false;
+    
+    if (activeScanAbortController) {
+        activeScanAbortController.abort();
+        activeScanAbortController = null;
+    }
+    
+    if (mutationObserver) {
+        mutationObserver.disconnect();
+        mutationObserver = null;
     }
 }
 
 // Initialize content script
 function initialize() {
-    if (!isExtensionContextValid()) return;
+    if (!isExtensionContextValid() || isInitialized) return;
     
+    isInitialized = true;
     debugLog("Content script initialized for:", window.location.href);
+    // Don't start automatic scanning - wait for explicit request
+    // Don't set up any observers or automatic triggers
     
-    // Scan when DOM changes
-    const observer = new MutationObserver(() => {
-        if (!isScanning) scanPage();
-    });
-    
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['href']
-    });
-    
-    // Initial scan
-    setTimeout(scanPage, 1000);
+    // Send a notification that the content script has been loaded, for debugging only
+    // This will NOT trigger any scanning
+    try {
+        chrome.runtime.sendMessage({
+            action: "contentScriptLoaded",
+            url: window.location.href
+        }).catch(e => debugLog("Failed to send load notification:", e));
+    } catch (e) {
+        debugLog("Failed to send load notification:", e);
+    }
 }
 
-// Handle messages from background
+// Handle messages from popup/background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "startScan") {
-        scanPage().then(() => sendResponse({ success: true }));
-        return true;
+    debugLog("Received message:", message);
+    
+    switch (message.action) {
+        case "ping":
+            sendResponse({ success: true, url: window.location.href });
+            return true;
+            
+        case "startScan":
+            debugLog("Received startScan command");
+            scanRequested = true;
+            
+            // Perform a single scan only - no mutation observer
+            scanPage().then(() => {
+                sendResponse({ success: true });
+            }).catch(error => {
+                debugLog("Scan error:", error);
+                sendResponse({ success: false, error: error.message });
+            });
+            return true;
+            
+        case "stopScan":
+            stopScanning();
+            sendResponse({ success: true });
+            return true;
+            
+        default:
+            sendResponse({ success: false, error: "Unknown action" });
+            return true;
     }
 });
 
-// Initialize
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+    debugLog("Page unloading, cleaning up");
+    stopScanning();
+    isInitialized = false;
+});
+
+// Initialize - but only when explicitly called
+console.log('[PhishDetect] Content script loaded, waiting for explicit commands');
 initialize();
