@@ -11,7 +11,7 @@
     "storage"
   ],
   "host_permissions": [
-    "http://localhost:5000/*",
+    "https://phishing-detection-extension-2g6e.onrender.com",
     "<all_urls>"
   ],
   "background": {
