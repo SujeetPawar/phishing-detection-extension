@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  phishing-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app:/app/api:/app/ml_mode
+    volumes:
+      - ./api:/app/api
+      - ./ml_mode:/app/ml_mode
+
