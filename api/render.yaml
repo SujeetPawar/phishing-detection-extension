@@ -4,7 +4,7 @@ services:
     env: python
     region: oregon
     buildCommand: cd api && pip install -r requirements.txt
-    startCommand: cd api && gunicorn --bind 0.0.0.0:$PORT wsgi:app
+    startCommand: cd api && gunicorn --bind 0.0.0.0:$PORT wsgi:app --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
