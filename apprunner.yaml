@@ -3,9 +3,7 @@ runtime: python3
 build:
   commands:
     build:
-      - echo "Installing dependencies..."
-      - cd api
-      - pip install -r requirements.txt
+      - cd api && pip install -r requirements.txt
 run:
   runtime-version: 3.11
   command: cd api && python3 -m gunicorn --bind 0.0.0.0:8000 wsgi:app
