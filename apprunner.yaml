@@ -1,0 +1,16 @@
+version: 1.0
+runtime: python3
+build:
+  commands:
+    build:
+      - echo "Installing dependencies..."
+      - pip install -r api/requirements.txt
+run:
+  runtime-version: 3.9
+  command: cd api && gunicorn --bind 0.0.0.0:8000 wsgi:app
+  network:
+    port: 8000
+  env:
+    - name: PORT
+      value: "8000"
+
