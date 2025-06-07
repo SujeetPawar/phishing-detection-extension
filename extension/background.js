@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000";
+const API_URL = "https://phishing-api-production-b0f6.up.railway.app";
 const BATCH_SIZE = 5;
 let currentResults = [];
 let processingQueue = [];
