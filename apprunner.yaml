@@ -8,7 +8,7 @@ build:
       - pip install -r requirements.txt
 run:
   runtime-version: 3.9
-  command: cd api && python -m gunicorn --bind 0.0.0.0:8000 wsgi:app
+  command: cd api && python3 -m gunicorn --bind 0.0.0.0:8000 wsgi:app
   network:
     port: 8000
   env:
@@ -16,4 +16,3 @@ run:
       value: "8000"
     - name: PYTHONPATH
       value: "/var/task:/var/task/api"
-
