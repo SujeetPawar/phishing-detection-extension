@@ -8,33 +8,20 @@ import os
 import sys
 
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ml_mode.model import HybridModel, load_model, URLFeatureExtractor
+# Use our custom model loader
+from model_loader import GLOBAL_MODEL as model
 
 app = Flask(__name__)
 CORS(app)
 
-
 # Set socket timeout for SSL checks
 socket.setdefaulttimeout(1.0)
 
-# Load the trained model
-try:
-    model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at {model_path}")
-    
-    # Make sure required classes are available
-    _ = URLFeatureExtractor()  # Test if class can be instantiated
-    _ = HybridModel()         # Test if class can be instantiated
-    
-    model = load_model(model_path)
-    if model is None:
-        raise ValueError("Failed to load model - invalid format")
-    print("✅ Model loaded successfully")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
+# Check model status
+if model is None:
+    print("⚠️ Model failed to load from model_loader.py")
+else:
+    print("✅ Model loaded successfully from model_loader.py")
 
 # Add a timeout to SSL checks
 def check_ssl(url):
