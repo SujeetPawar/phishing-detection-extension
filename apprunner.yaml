@@ -7,7 +7,7 @@ build:
       - cd api
       - pip install -r requirements.txt
 run:
-  runtime-version: 3.8
+  runtime-version: 3.11
   command: cd api && python3 -m gunicorn --bind 0.0.0.0:8000 wsgi:app
   network:
     port: 8000
